@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Цена ошибки AI-агента — калькулятор</title>
+<style>
+  :root {
+    --bg: #101418;
+    --panel: #1a2129;
+    --panel2: #222b35;
+    --text: #eef2f6;
+    --muted: #9fb0bf;
+    --line: #2e3947;
+    --green: #3ddc84;
+    --red: #ff5c5c;
+    --amber: #ffb84d;
+    --accent: #5aa9ff;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 20px;
+    line-height: 1.4;
+  }
+  .wrap { max-width: 1700px; margin: 0 auto; padding: 24px 32px 48px; }
+  h1 { font-size: 40px; margin: 8px 0 4px; font-weight: 700; }
+  .subtitle { color: var(--muted); font-size: 20px; margin-bottom: 20px; }
+
+  .layout { display: grid; grid-template-columns: 460px 1fr; gap: 28px; align-items: start; }
+  @media (max-width: 1100px) { .layout { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px 22px;
+  }
+  .panel h2 { font-size: 24px; margin: 0 0 14px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 19px; color: var(--muted); margin-bottom: 4px; }
+  .field input {
+    width: 100%;
+    font-size: 24px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--panel2);
+    color: var(--text);
+    font-family: inherit;
+  }
+  .field input:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+  .field .hint { font-size: 16px; color: var(--muted); margin-top: 3px; }
+
+  .formula {
+    background: var(--panel2);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 12px;
+    font-size: 23px;
+  }
+  .formula .fname { color: var(--muted); font-size: 19px; display: block; margin-bottom: 4px; }
+  .formula .fres { font-weight: 700; }
+  .formula.bad .fres { color: var(--red); }
+  .formula.neutral .fres { color: var(--text); }
+
+  .totals { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+  .total-box {
+    background: var(--panel2);
+    border-radius: 10px;
+    padding: 14px 18px;
+    text-align: center;
+  }
+  .total-box .tlabel { font-size: 19px; color: var(--muted); }
+  .total-box .tval { font-size: 34px; font-weight: 700; margin-top: 4px; }
+
+  .verdict {
+    border-radius: 14px;
+    padding: 22px 26px;
+    text-align: center;
+    margin: 18px 0;
+    border: 2px solid transparent;
+  }
+  .verdict.ok { background: rgba(61, 220, 132, 0.12); border-color: var(--green); }
+  .verdict.fail { background: rgba(255, 92, 92, 0.12); border-color: var(--red); }
+  .verdict .vword { font-size: 56px; font-weight: 800; letter-spacing: 0.02em; }
+  .verdict.ok .vword { color: var(--green); }
+  .verdict.fail .vword { color: var(--red); }
+  .verdict .vwhy { font-size: 26px; margin-top: 6px; }
+
+  .matrix {
+    display: flex; align-items: center; gap: 18px;
+    background: var(--panel2);
+    border-radius: 12px;
+    padding: 16px 22px;
+    margin-bottom: 12px;
+  }
+  .matrix .mlabel { font-size: 20px; color: var(--muted); }
+  .badge {
+    font-size: 34px; font-weight: 800;
+    padding: 8px 26px; border-radius: 10px;
+    letter-spacing: 0.03em;
+  }
+  .badge.auto { background: rgba(61, 220, 132, 0.18); color: var(--green); border: 2px solid var(--green); }
+  .badge.copilot { background: rgba(255, 184, 77, 0.15); color: var(--amber); border: 2px solid var(--amber); }
+  .badge.human { background: rgba(255, 92, 92, 0.15); color: var(--red); border: 2px solid var(--red); }
+
+  .rule {
+    font-size: 19px;
+    color: var(--muted);
+    background: var(--panel2);
+    border-left: 4px solid var(--accent);
+    border-radius: 8px;
+    padding: 12px 16px;
+  }
+  .rule b { color: var(--text); }
+
+  .procname { font-size: 26px; color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Цена ошибки AI-агента</h1>
+  <div class="subtitle">Калькулятор окупаемости: матрица «цена ошибки × стоимость проверки». Все числа пересчитываются при вводе.</div>
+
+  <div class="layout">
+    <div class="panel">
+      <h2>Параметры процесса</h2>
+
+      <div class="field">
+        <label for="proc">1. Название процесса</label>
+        <input id="proc" type="text" value="Проверка кредитных заявок">
+      </div>
+      <div class="field">
+        <label for="vol">2. Объём: задач в день</label>
+        <input id="vol" type="number" min="0" step="1" value="1000">
+      </div>
+      <div class="field">
+        <label for="rate">3. Частота ошибок агента, %</label>
+        <input id="rate" type="number" min="0" max="100" step="0.1" value="10">
+      </div>
+      <div class="field">
+        <label for="dmg">4. Средний ущерб одной незамеченной ошибки, ₽</label>
+        <input id="dmg" type="number" min="0" step="100" value="15000">
+      </div>
+      <div class="field">
+        <label for="det">5. Обнаружимость ошибки контролём, %</label>
+        <input id="det" type="number" min="0" max="100" step="1" value="80">
+      </div>
+      <div class="field">
+        <label for="chk">6. Стоимость проверки одной задачи человеком, ₽</label>
+        <input id="chk" type="number" min="0" step="10" value="300">
+      </div>
+      <div class="field">
+        <label for="share">7. Доля задач, проверяемых человеком, %</label>
+        <input id="share" type="number" min="0" max="100" step="1" value="100">
+        <div class="hint">100% — копилот: человек смотрит каждую задачу. 0% — полный автомат без проверки.</div>
+      </div>
+      <div class="field">
+        <label for="man">8. Стоимость выполнения одной задачи человеком без агента, ₽</label>
+        <input id="man" type="number" min="0" step="10" value="800">
+        <div class="hint">Выполнение с нуля обычно дороже проверки готового результата агента.</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h2>Расчёт: <span class="procname" id="procOut"></span></h2>
+
+        <div class="formula bad" id="fErr">
+          <span class="fname">Ожидаемая цена ошибок в день = объём × частота × ущерб × (1 − обнаружимость × доля проверки)</span>
+          <span class="fbody"></span>
+        </div>
+        <div class="formula neutral" id="fChk">
+          <span class="fname">Стоимость человеческой проверки в день = объём × доля проверки × стоимость проверки</span>
+          <span class="fbody"></span>
+        </div>
+        <div class="formula neutral" id="fMan">
+          <span class="fname">Ручной процесс без агента в день = объём × стоимость выполнения человеком</span>
+          <span class="fbody"></span>
+        </div>
+        <div class="formula neutral" id="fEco">
+          <span class="fname">Экономия в день = ручной процесс − (проверка + цена ошибок)</span>
+          <span class="fbody"></span>
+        </div>
+
+        <div class="totals">
+          <div class="total-box">
+            <div class="tlabel">Итого режим «агент + проверка», в день</div>
+            <div class="tval" id="totDay"></div>
+          </div>
+          <div class="total-box">
+            <div class="tlabel">Экономия в месяц (22 рабочих дня)</div>
+            <div class="tval" id="totMonth"></div>
+          </div>
+        </div>
+
+        <div class="verdict ok" id="verdictBox">
+          <div class="vword" id="verdictWord"></div>
+          <div class="vwhy" id="verdictWhy"></div>
+        </div>
+
+        <div class="matrix">
+          <div class="mlabel">Классификация<br>по матрице:</div>
+          <div class="badge copilot" id="matrixBadge"></div>
+        </div>
+
+        <div class="rule">
+          <b>Правило классификации.</b>
+          Если экономия больше нуля даже без проверки (доля 0%), процесс можно отдать <b>автомату</b>.
+          Если экономия появляется только когда человек проверяет результат, рабочий режим — <b>копилот</b>.
+          Если экономия отрицательна при любой доле проверки, процесс остаётся за <b>человеком</b>: агент здесь убыточен.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var ids = ["proc", "vol", "rate", "dmg", "det", "chk", "share", "man"];
+  var els = {};
+  ids.forEach(function (id) { els[id] = document.getElementById(id); });
+
+  function num(id) {
+    var v = parseFloat(els[id].value);
+    if (isNaN(v) || v < 0) return 0;
+    return v;
+  }
+  function pct(id) {
+    var v = num(id);
+    return v > 100 ? 100 : v;
+  }
+  function fmt(n) {
+    return Math.round(n).toLocaleString("ru-RU") + " ₽";
+  }
+  function fmtNum(n) {
+    return Math.round(n).toLocaleString("ru-RU");
+  }
+  function signed(n) {
+    var r = Math.round(n);
+    return (r > 0 ? "+" : "") + r.toLocaleString("ru-RU") + " ₽";
+  }
+
+  function setFormula(id, text) {
+    document.querySelector("#" + id + " .fbody").textContent = text;
+  }
+
+  function calc() {
+    var proc = els.proc.value.trim() || "Процесс";
+    var V = num("vol");
+    var r = pct("rate") / 100;
+    var D = num("dmg");
+    var det = pct("det") / 100;
+    var C = num("chk");
+    var s = pct("share") / 100;
+    var M = num("man");
+
+    var errCost = V * r * D * (1 - det * s);
+    var chkCost = V * s * C;
+    var agentTotal = errCost + chkCost;
+    var manual = V * M;
+    var economy = manual - agentTotal;
+    var monthEco = economy * 22;
+
+    // Гипотеза полного автомата: доля проверки 0%
+    var errCostAuto = V * r * D;
+    var economyAuto = manual - errCostAuto;
+
+    document.getElementById("procOut").textContent = proc;
+
+    setFormula("fErr",
+      "= " + fmtNum(V) + " × " + (r * 100) + "% × " + fmt(D) +
+      " × (1 − " + (det * 100) + "% × " + (s * 100) + "%) = " + fmt(errCost));
+    setFormula("fChk",
+      "= " + fmtNum(V) + " × " + (s * 100) + "% × " + fmt(C) + " = " + fmt(chkCost));
+    setFormula("fMan",
+      "= " + fmtNum(V) + " × " + fmt(M) + " = " + fmt(manual));
+    setFormula("fEco",
+      "= " + fmt(manual) + " − (" + fmt(chkCost) + " + " + fmt(errCost) + ") = " + signed(economy));
+    document.getElementById("fEco").className = "formula " + (economy > 0 ? "neutral" : "bad");
+
+    document.getElementById("totDay").textContent = fmt(agentTotal);
+
+    var tm = document.getElementById("totMonth");
+    tm.textContent = signed(monthEco);
+    tm.style.color = monthEco > 0 ? "var(--green)" : (monthEco < 0 ? "var(--red)" : "var(--text)");
+
+    var vb = document.getElementById("verdictBox");
+    var vw = document.getElementById("verdictWord");
+    var vwhy = document.getElementById("verdictWhy");
+    if (economy > 0) {
+      vb.className = "verdict ok";
+      vw.textContent = "ОКУПАЕТСЯ";
+      vwhy.textContent = "Экономия " + signed(economy) + " в день: агент с проверкой дешевле ручного процесса.";
+    } else {
+      vb.className = "verdict fail";
+      vw.textContent = "НЕ ОКУПАЕТСЯ";
+      vwhy.textContent = "Экономия " + signed(economy) + " в день: цена ошибок и проверки превышает ручной процесс.";
+    }
+
+    var badge = document.getElementById("matrixBadge");
+    if (economyAuto > 0) {
+      badge.className = "badge auto";
+      badge.textContent = "АВТОМАТ";
+    } else if (economy > 0) {
+      badge.className = "badge copilot";
+      badge.textContent = "КОПИЛОТ";
+    } else {
+      badge.className = "badge human";
+      badge.textContent = "ЧЕЛОВЕК";
+    }
+  }
+
+  ids.forEach(function (id) {
+    els[id].addEventListener("input", calc);
+  });
+  calc();
+})();
+</script>
+</body>
+</html>
